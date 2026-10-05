@@ -2,17 +2,19 @@
 #include "board.h"
 #include "led.h"
 #include "delay.h"
+#include "usart1.h"
 int main(){
 	board_lowlevel_init();
 	delay_init();
-	led_init(&led0);
-	led_init(&led1);
+	led_init();
+	usart1_init(115200);
 	while(1){
-		led_on(&led0);
-		delay_ms(500);
-		led_off(&led0);
-		led_on(&led1);
-		delay_ms(500);
-		led_off(&led1);
+		if(usart1_available()>0){
+			uint8_t buf[100];
+			uint16_t len = usart1_readline(buf, sizeof(buf));
+			if(len>0){
+				printf("Received %d bytes:%.*s", len, len, buf);
+			}
+		}
 	}
 }

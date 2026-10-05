@@ -405,6 +405,11 @@
               <FileType>1</FileType>
               <FilePath>..\Driver\led.c</FilePath>
             </File>
+            <File>
+              <FileName>usart1.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Driver\usart1.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -557,6 +562,11 @@
               <FileName>delay.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Common\delay.c</FilePath>
+            </File>
+            <File>
+              <FileName>uart.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Common\uart.c</FilePath>
             </File>
           </Files>
         </Group>

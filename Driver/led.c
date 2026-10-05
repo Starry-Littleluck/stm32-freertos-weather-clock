@@ -1,7 +1,10 @@
 #include "led.h"
 #include "stdio.h"
 
-void led_init(led_desc_t led)
+struct led_desc led0 = {GPIOB, GPIO_Pin_5, Bit_RESET, Bit_SET};
+struct led_desc led1 = {GPIOE, GPIO_Pin_5, Bit_RESET, Bit_SET};
+
+static void led_lowlevel_init(led_desc_t led)
 {
     if (led == NULL)
     {
@@ -13,6 +16,12 @@ void led_init(led_desc_t led)
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz; /* 设置GPIO速度为2MHz */
     GPIO_Init(led->Port, &GPIO_InitStructure);       /* 初始化GPIO */
     led_off(led);                                    /* 初始化时默认关闭LED */
+}
+
+void led_init(void)
+{
+    led_lowlevel_init(&led0);
+    led_lowlevel_init(&led1);
 }
 
 void led_set(led_desc_t led, bool onoff)
