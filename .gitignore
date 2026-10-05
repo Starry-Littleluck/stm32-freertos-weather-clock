@@ -1,0 +1,44 @@
+# ===== Keil MDK / uVision =====
+
+# 编译输出文件
+*.o
+*.obj
+*.axf
+*.elf
+*.hex
+*.bin
+*.map
+*.lst
+*.crf
+*.d
+*.dep
+*.lnp
+*.plg
+*.iex
+*.htm
+*.build_log.htm
+*.sct
+*.scr
+*.i
+
+# Keil 输出目录
+Objects/
+Listings/
+DebugConfig/
+Output/
+Debug/
+Release/
+build/
+
+# uVision 用户/界面配置，不建议提交
+*.uvguix.*
+*.uvoptx
+*.uvopt
+*.bak
+*.bak.*
+*.scvd
+
+# 调试器日志
+JLinkLog.txt
+*.JLink
+*.jlink
