@@ -9,7 +9,7 @@
  */
 static uint16_t fifo_new_index(const uart_desc_t uart, uint16_t index, uint16_t n)
 {
-    return (uint16_t)((index + n) & uart->rx_fifo_mask);
+    return (uint16_t)((index + n) & uart->Rx_fifo_mask);
 }
 
 /**
@@ -22,12 +22,12 @@ static uint16_t fifo_new_index(const uart_desc_t uart, uint16_t index, uint16_t 
 static void fifo_data_in(uart_desc_t uart, uint16_t index, const uint8_t *data, uint16_t len)
 {
     /* 先写入 index 到 FIFO 尾部的空间 */
-    uint16_t first = (len < (uint16_t)(uart->rx_fifo_size - index)) ? len : (uint16_t)(uart->rx_fifo_size - index);
+    uint16_t first = (len < (uint16_t)(uart->Rx_fifo_size - index)) ? len : (uint16_t)(uart->Rx_fifo_size - index);
 
     /* 复制数据到 FIFO */
-    memcpy(&uart->rx_fifo_buffer[index], data, first);
+    memcpy(&uart->Rx_fifo_buffer[index], data, first);
     if (len > first) /* 如果数据长度超过了 FIFO 尾部空间，则从 FIFO 头部继续写入 */
-        memcpy(uart->rx_fifo_buffer, &data[first], (uint16_t)(len - first));
+        memcpy(uart->Rx_fifo_buffer, &data[first], (uint16_t)(len - first));
 }
 
 /**
@@ -40,12 +40,12 @@ static void fifo_data_in(uart_desc_t uart, uint16_t index, const uint8_t *data, 
 static void fifo_data_out(const uart_desc_t uart, uint16_t index, uint8_t *data, uint16_t len)
 {
     /* 先读出 index 到 FIFO 尾部的空间 */
-    uint16_t first = (len < (uint16_t)(uart->rx_fifo_size - index)) ? len : (uint16_t)(uart->rx_fifo_size - index);
+    uint16_t first = (len < (uint16_t)(uart->Rx_fifo_size - index)) ? len : (uint16_t)(uart->Rx_fifo_size - index);
 
     /* 复制数据到目标缓冲区 */
-    memcpy(data, &uart->rx_fifo_buffer[index], first);
+    memcpy(data, &uart->Rx_fifo_buffer[index], first);
     if (len > first) /* 如果数据长度超过了 FIFO 尾部空间，则从 FIFO 头部继续读出 */
-        memcpy(&data[first], uart->rx_fifo_buffer, (uint16_t)(len - first));
+        memcpy(&data[first], uart->Rx_fifo_buffer, (uint16_t)(len - first));
 }
 
 /**
@@ -58,12 +58,12 @@ static void fifo_data_out(const uart_desc_t uart, uint16_t index, uint8_t *data,
 static uint16_t fifo_write(uart_desc_t uart, const uint8_t *data, uint16_t len)
 {
     /* 计算 FIFO 剩余空间 */
-    uint16_t free_size = (uint16_t)(uart->rx_fifo_size - uart_available(uart) - 1);
+    uint16_t free_size = (uint16_t)(uart->Rx_fifo_size - uart_available(uart) - 1);
     /* 实际写入的字节数 = min(len, free_size) */
     uint16_t write_size = (len < free_size) ? len : free_size;
 
-    fifo_data_in(uart, uart->rx_head, data, write_size);             /* 写入数据到 FIFO */
-    uart->rx_head = fifo_new_index(uart, uart->rx_head, write_size); /* 更新写指针 */
+    fifo_data_in(uart, uart->Rx_head, data, write_size);             /* 写入数据到 FIFO */
+    uart->Rx_head = fifo_new_index(uart, uart->Rx_head, write_size); /* 更新写指针 */
     return write_size;                                               /* 返回实际写入的字节数 */
 }
 
@@ -78,10 +78,12 @@ static uint16_t fifo_write(uart_desc_t uart, const uint8_t *data, uint16_t len)
  */
 void uart_init(uart_desc_t uart)
 {
-    uart->rx_fifo_mask = (uint16_t)(uart->rx_fifo_size - 1); /* 计算 FIFO mask */
-    uart->rx_head = 0;                                       /* 清空 FIFO 写指针 */
-    uart->rx_tail = 0;                                       /* 清空 FIFO 读指针 */
-    uart->rx_dma_pos = 0;                                    /* 清空 DMA 写指针 */
+    uart->Rx_fifo_mask = (uint16_t)(uart->Rx_fifo_size - 1); /* 计算 FIFO mask */
+    uart->Rx_head = 0;                                       /* 清空 FIFO 写指针 */
+    uart->Rx_tail = 0;                                       /* 清空 FIFO 读指针 */
+    uart->Rx_dma_pos = 0;                                    /* 清空 DMA 写指针 */
+    uart->Rx_line_scan = 0;                                  /* 清空按行扫描位置 */
+    uart->Rx_line_length = 0;                                /* 清空按行扫描长度 */
 }
 
 /* ============================================================
@@ -91,30 +93,45 @@ void uart_init(uart_desc_t uart)
 /**
  * @brief 把 DMA 本次新增的数据搬进 FIFO。
  * @param uart     UART 对象
- * @param position DMA 当前写指针位置（= rx_dma_size时表示刚好绕回起点）
+ * DMA 当前写位置直接从剩余计数器读取。DMA 半传输、传输完成和
+ * USART 空闲中断都调用同一个入口，避免传入固定位置导致重复搬运。
  */
-void uart_dma_push(uart_desc_t uart, uint16_t position)
+void uart_dma_push(uart_desc_t uart)
 {
-    uint16_t last = uart->rx_dma_pos;  /* 上次搬运的 DMA 写指针位置 */
-    uint16_t size = uart->rx_dma_size; /* DMA 缓冲区大小 */
+    uint32_t primask = __get_PRIMASK();
+    uint16_t last;
+    uint16_t size;
+    uint16_t position;
+
+    __disable_irq();
+    last = uart->Rx_dma_pos;  /* 上次搬运的 DMA 写指针位置 */
+    size = uart->Rx_dma_size; /* DMA 缓冲区大小 */
+    position = (uint16_t)(size - DMA_GetCurrDataCounter(uart->Dma_channel));
+
+    /* CNDTR 在传输完成后可能已经重装为 size，此时位置表现为 0。 */
+    if (position == 0 && last != 0)
+    {
+        position = size;
+    }
 
     if (position == size) /* DMA 写指针绕回起点 */
     {
-        fifo_write(uart, &uart->rx_dma_buffer[last], (uint16_t)(size - last));
+        fifo_write(uart, &uart->Rx_dma_buffer[last], (uint16_t)(size - last));
         position = 0;
     }
     else if (position > last) /* DMA 写指针在上次搬运位置之后 */
     {
-        fifo_write(uart, &uart->rx_dma_buffer[last], (uint16_t)(position - last));
+        fifo_write(uart, &uart->Rx_dma_buffer[last], (uint16_t)(position - last));
     }
     else if (position < last) /* DMA 写指针在上次搬运位置之前，说明 DMA 缓冲区已绕回起点 */
     {
-        fifo_write(uart, &uart->rx_dma_buffer[last], (uint16_t)(size - last));
-        fifo_write(uart, uart->rx_dma_buffer, position);
+        fifo_write(uart, &uart->Rx_dma_buffer[last], (uint16_t)(size - last));
+        fifo_write(uart, uart->Rx_dma_buffer, position);
     }
     /* position == last: 无新数据 */
 
-    uart->rx_dma_pos = position; /* 更新 DMA 写指针位置 */
+    uart->Rx_dma_pos = (position == size) ? 0 : position;
+    __set_PRIMASK(primask);
 }
 
 /* ============================================================
@@ -129,15 +146,15 @@ void uart_handle(uart_desc_t uart)
 {
     volatile uint32_t tmp;
 
-    if (USART_GetITStatus(uart->instance, USART_IT_IDLE) != RESET)
+    if (USART_GetITStatus(uart->Instance, USART_IT_IDLE) != RESET)
     {
         /* 读 SR + 读 DR 清除 IDLE 标志 */
-        tmp = uart->instance->SR;
-        tmp = uart->instance->DR;
+        tmp = uart->Instance->SR;
+        tmp = uart->Instance->DR;
         (void)tmp;
 
         /* DMA 已写位置 = 总大小 - 剩余计数 */
-        uart_dma_push(uart, (uint16_t)(uart->rx_dma_size - DMA_GetCurrDataCounter(uart->dma_channel)));
+        uart_dma_push(uart);
     }
 }
 
@@ -154,13 +171,13 @@ void uart_send(uart_desc_t uart, const uint8_t *data, uint16_t length)
 
     for (i = 0; i < length; i++)
     {
-        while (USART_GetFlagStatus(uart->instance, USART_FLAG_TXE) == RESET)
+        while (USART_GetFlagStatus(uart->Instance, USART_FLAG_TXE) == RESET)
         {
         }
-        USART_SendData(uart->instance, data[i]);
+        USART_SendData(uart->Instance, data[i]);
     }
 
-    while (USART_GetFlagStatus(uart->instance, USART_FLAG_TC) == RESET)
+    while (USART_GetFlagStatus(uart->Instance, USART_FLAG_TC) == RESET)
     {
     }
 }
@@ -182,9 +199,9 @@ void uart_send_string(uart_desc_t uart, const char *string)
  */
 uint16_t uart_available(const uart_desc_t uart)
 {
-    uint16_t head = uart->rx_head;
-    uint16_t tail = uart->rx_tail;
-    return (uint16_t)(((uint32_t)head - (uint32_t)tail) & uart->rx_fifo_mask);
+    uint16_t head = uart->Rx_head;
+    uint16_t tail = uart->Rx_tail;
+    return (uint16_t)(((uint32_t)head - (uint32_t)tail) & uart->Rx_fifo_mask);
 }
 
 /**
@@ -196,55 +213,62 @@ uint16_t uart_read(uart_desc_t uart, uint8_t *buf, uint16_t len)
     uint16_t available = uart_available(uart);
     uint16_t read_size = (len < available) ? len : available;
 
-    fifo_data_out(uart, uart->rx_tail, buf, read_size);
-    uart->rx_tail = fifo_new_index(uart, uart->rx_tail, read_size);
+    fifo_data_out(uart, uart->Rx_tail, buf, read_size);
+    uart->Rx_tail = fifo_new_index(uart, uart->Rx_tail, read_size);
+    uart->Rx_line_scan = uart->Rx_tail;
+    uart->Rx_line_length = 0;
     return read_size;
 }
 
 /**
  * @brief 从 FIFO 读取一行（以 '\n' 结束，自动去掉行尾 '\r'）。
- * @return 实际复制的字节数；没有完整一行时返回 0。
+ * @return 实际复制的字节数；没有完整一行时返回 0。不追加 '\0'。
  */
 uint16_t uart_readline(uart_desc_t uart, uint8_t *line, uint16_t size)
 {
     uint16_t available;
-    uint16_t line_length = 0;
-    uint16_t index;
     uint16_t data_length;
     uint16_t copy_length;
+    uint8_t line_ready = 0;
 
-    if (size == 0)
+    if (line == NULL || size == 0)
     {
         return 0;
     }
 
     available = uart_available(uart);
-    index = uart->rx_tail;
-    while ((line_length < available) && (uart->rx_fifo_buffer[index] != '\n'))
+    while (uart->Rx_line_length < available)
     {
-        line_length++;
-        index = fifo_new_index(uart, index, 1);
+        uint8_t ch = uart->Rx_fifo_buffer[uart->Rx_line_scan];
+        uart->Rx_line_scan = fifo_new_index(uart, uart->Rx_line_scan, 1);
+        uart->Rx_line_length++;
+        if (ch == '\n')
+        {
+            line_ready = 1;
+            break;
+        }
     }
 
-    if (line_length == available)
+    if (!line_ready)
     {
         return 0; /* 还没有完整一行 */
     }
 
-    data_length = line_length;
+    data_length = (uint16_t)(uart->Rx_line_length - 1); /* 去掉 '\n' */
     if ((data_length > 0) &&
-        (uart->rx_fifo_buffer[fifo_new_index(uart, uart->rx_tail,
+        (uart->Rx_fifo_buffer[fifo_new_index(uart, uart->Rx_tail,
                                              (uint16_t)(data_length - 1))] == '\r'))
     {
         data_length--;
     }
 
-    copy_length = (data_length < (uint16_t)(size - 1))
+    copy_length = (data_length < size)
                       ? data_length
-                      : (uint16_t)(size - 1);
-    fifo_data_out(uart, uart->rx_tail, line, copy_length);
-    line[copy_length] = '\0';
-    uart->rx_tail = fifo_new_index(uart, uart->rx_tail, (uint16_t)(line_length + 1));
+                      : size;
+    fifo_data_out(uart, uart->Rx_tail, line, copy_length);
+    uart->Rx_tail = uart->Rx_line_scan; /* 丢弃整行（含 '\n'） */
+    uart->Rx_line_scan = uart->Rx_tail;
+    uart->Rx_line_length = 0;
 
     return copy_length;
 }

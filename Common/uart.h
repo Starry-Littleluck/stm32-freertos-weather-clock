@@ -9,25 +9,29 @@
 struct uart_desc
 {
     /* ---------- 外设 ---------- */
-    USART_TypeDef *instance; /* USART1 / USART2 / USART3 / UART4 / UART5 */
-    GPIO_TypeDef *gpio_port; /* GPIOA / GPIOB / ...                     */
-    uint16_t pin_tx;         /* 例如 GPIO_Pin_9                         */
-    uint16_t pin_rx;         /* 例如 GPIO_Pin_10                        */
+    USART_TypeDef *Instance; /* USART1 / USART2 / USART3 / UART4 / UART5 */
+    GPIO_TypeDef *Gpio_port; /* GPIOA / GPIOB / ...                     */
+    uint16_t Pin_tx;         /* 例如 GPIO_Pin_9                         */
+    uint16_t Pin_rx;         /* 例如 GPIO_Pin_10                        */
 
     /* ---------- DMA 通道（IDLE 中断里计算写指针用） ---------- */
-    DMA_Channel_TypeDef *dma_channel; /* 例如 DMA1_Channel5 */
+    DMA_Channel_TypeDef *Dma_channel; /* 例如 DMA1_Channel5 */
 
     /* ---------- DMA 硬件循环缓冲区 ---------- */
-    uint8_t *rx_dma_buffer;       /* 用户提供，DMA 循环写入 */
-    uint16_t rx_dma_size;         /* 大小，建议 2 的幂 */
-    volatile uint16_t rx_dma_pos; /* 软件记录：上次已搬走的 DMA 位置 */
+    uint8_t *Rx_dma_buffer;       /* 用户提供，DMA 循环写入 */
+    uint16_t Rx_dma_size;         /* 大小，建议 2 的幂 */
+    volatile uint16_t Rx_dma_pos; /* 软件记录：上次已搬走的 DMA 位置 */
 
     /* ---------- 软件 FIFO（内联） ---------- */
-    uint8_t *rx_fifo_buffer;   /* 用户提供，容量必须为 2 的幂 */
-    uint16_t rx_fifo_size;     /* 容量 */
-    uint16_t rx_fifo_mask;     /* = size - 1，由 UART_Init 计算 */
-    volatile uint16_t rx_head; /* 写指针（中断里更新） */
-    volatile uint16_t rx_tail; /* 读指针（主循环更新） */
+    uint8_t *Rx_fifo_buffer;   /* 用户提供，容量必须为 2 的幂 */
+    uint16_t Rx_fifo_size;     /* 容量 */
+    uint16_t Rx_fifo_mask;     /* = size - 1，由 UART_Init 计算 */
+    volatile uint16_t Rx_head; /* 写指针（中断里更新） */
+    volatile uint16_t Rx_tail; /* 读指针（主循环更新） */
+
+    /* ---------- 按行读取状态（仅主循环访问） ---------- */
+    uint16_t Rx_line_scan;     /* 下一次 readline() 要扫描的 FIFO 位置 */
+    uint16_t Rx_line_length;   /* 从 Rx_tail 到扫描位置的已扫描字节数 */
 };
 
 typedef struct uart_desc *uart_desc_t; /* 句柄类型 */
@@ -37,7 +41,7 @@ void uart_send(uart_desc_t uart, const uint8_t *data, uint16_t length); /* 主�
 void uart_send_string(uart_desc_t uart, const char *string);            /* 主循环里调用，发送字符串 */
 void uart_handle(uart_desc_t uart);                                     /* IDLE 中断里调用，搬运 DMA 数据到 FIFO */
 
-void uart_dma_push(uart_desc_t uart, uint16_t position);                /* DMA 中断里调用，更新写指针 */
+void uart_dma_push(uart_desc_t uart);                                   /* DMA/USART 中断里调用，同步 DMA 新数据 */
 uint16_t uart_available(const uart_desc_t uart);                        /* 主循环里调用，返回可读字节数 */
 uint16_t uart_read(uart_desc_t uart, uint8_t *buf, uint16_t len);       /* 主循环里调用，从 FIFO 里读数据 */
 uint16_t uart_readline(uart_desc_t uart, uint8_t *line, uint16_t size); /* 主循环里调用，从 FIFO 里读一行数据，返回字节数 */
