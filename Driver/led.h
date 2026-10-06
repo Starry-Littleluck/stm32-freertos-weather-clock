@@ -14,6 +14,8 @@ struct led_desc
 typedef struct led_desc *led_desc_t; /* 句柄类型 */
 
 extern struct led_desc led0, led1; /* LED0和LED1的描述结构体 */
+#define LED0 (&led0)               /* LED0 句柄 */
+#define LED1 (&led1)               /* LED1 句柄 */
 
 void led_init(void);                      /* 初始化 LED（配置 GPIO） */
 void led_set(led_desc_t led, bool onoff); /* 设置 LED 状态（onoff = true 打开，false 关闭） */

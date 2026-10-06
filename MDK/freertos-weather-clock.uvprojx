@@ -410,6 +410,16 @@
               <FileType>1</FileType>
               <FilePath>..\Driver\usart1.c</FilePath>
             </File>
+            <File>
+              <FileName>key.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Driver\key.c</FilePath>
+            </File>
+            <File>
+              <FileName>timer.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Driver\timer.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

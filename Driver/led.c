@@ -20,8 +20,8 @@ static void led_lowlevel_init(led_desc_t led)
 
 void led_init(void)
 {
-    led_lowlevel_init(&led0);
-    led_lowlevel_init(&led1);
+    led_lowlevel_init(LED0);
+    led_lowlevel_init(LED1);
 }
 
 void led_set(led_desc_t led, bool onoff)
