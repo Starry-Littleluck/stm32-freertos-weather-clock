@@ -435,6 +435,16 @@
               <FileType>1</FileType>
               <FilePath>..\Driver\lcd.c</FilePath>
             </File>
+            <File>
+              <FileName>at24c02.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Driver\at24c02.c</FilePath>
+            </File>
+            <File>
+              <FileName>mpu6050.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Driver\mpu6050.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -597,6 +607,16 @@
               <FileName>font.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Common\font.c</FilePath>
+            </File>
+            <File>
+              <FileName>iic.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Common\iic.c</FilePath>
+            </File>
+            <File>
+              <FileName>iic_hard.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Common\iic_hard.c</FilePath>
             </File>
           </Files>
         </Group>

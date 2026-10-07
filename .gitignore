@@ -48,3 +48,4 @@ MDK/.vscode/uv4.log
 MDK/.vscode/uv4.log.lock
 .vscode/uv4.log.lock
 .vscode/keil-assistant.log
+*.log
