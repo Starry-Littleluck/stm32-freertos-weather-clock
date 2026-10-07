@@ -5,6 +5,8 @@
 #include "usart1.h"
 #include "key.h"
 #include "timer.h"
+#include "lcd.h"
+#include "encoder.h"
 
 static uint8_t key_report(key_desc_t key, const char *name)
 {
@@ -37,10 +39,38 @@ int main(void)
 	led_init();
 	usart1_init(115200);
 	key_init();
+	encoder_init();
+	encoder_set_value(50);
 	timer_init();
-	printf("key/timer test ready\r\n");
+	lcd_init();
+	lcd_set_text_color(LCD_BLUE);
+	lcd_set_back_color(LCD_WHITE);
+	lcd_show_string(20U, 20U, LCD_WIDTH - 40U, 32U, "STM32 WEATHER CLOCK", 16U);
+	lcd_show_string(20U, 60U, LCD_WIDTH - 40U, 32U, "NT5510 480x800", 16U);
+	lcd_show_string(20U, 100U, LCD_WIDTH - 40U, 32U, "BRIGHTNESS:", 16U);
+	lcd_show_num(140U, 100U, 50U, 3U, 16U);
+	lcd_show_string(164U, 100U, LCD_WIDTH - 164U, 32U, "%", 16U);
+	printf("key/timer/lcd test ready\r\n");
 
 	while(1){
+		static int32_t last_brightness = 50;
+		int32_t brightness = encoder_get_value();
+
+		if (brightness < 0) {
+			brightness = 0;
+			encoder_set_value(brightness);
+		}
+		else if (brightness > 100) {
+			brightness = 100;
+			encoder_set_value(brightness);
+		}
+
+		if (brightness != last_brightness) {
+			last_brightness = brightness;
+			lcd_set_backlight((uint8_t)brightness);
+			lcd_show_num(140U, 100U, (uint32_t)brightness, 3U, 16U);
+		}
+
 		if(usart1_available()>0){
 			uint8_t buf[100];
 			uint16_t len = usart1_readline(buf, sizeof(buf));
