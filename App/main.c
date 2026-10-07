@@ -6,6 +6,7 @@
 #include "usart1.h"
 #include "key.h"
 #include "timer.h"
+#include "nec.h"
 #include "lcd.h"
 #include "encoder.h"
 #include "at24c02.h"
@@ -33,6 +34,18 @@ static void lcd_show_mpu_data(const mpu6050_data_t *data)
 static uint8_t mpu6050_id_valid(uint8_t id)
 {
 	return (id == 0x68U || id == 0x70U || id == 0x71U || id == 0x73U) ? 1U : 0U;
+}
+
+static void lcd_show_hex8(uint16_t x, uint16_t y, uint8_t value)
+{
+	static const char hex[] = "0123456789ABCDEF";
+
+	lcd_show_char(x, y, '0', 16U);
+	lcd_show_char((uint16_t)(x + 8U), y, 'x', 16U);
+	lcd_show_char((uint16_t)(x + 16U), y,
+			      (uint8_t)hex[(value >> 4) & 0x0FU], 16U);
+	lcd_show_char((uint16_t)(x + 24U), y,
+			      (uint8_t)hex[value & 0x0FU], 16U);
 }
 
 static uint8_t key_report(key_desc_t key, const char *name)
@@ -72,6 +85,9 @@ int main(void)
 	uint16_t iic_debug_sr2;
 	uint16_t iic_debug_cr1;
 	uint16_t iic_debug_cr2;
+	uint8_t nec_address;
+	uint8_t nec_command;
+	nec_event_t nec_event;
 	mpu6050_data_t mpu_data = {0};
 
 	board_lowlevel_init();
@@ -82,6 +98,7 @@ int main(void)
 	encoder_init();
 	encoder_set_value(50);
 	timer_init();
+	nec_init();
 	at24_init_status = at24c02_init();
 	at24_status = at24_init_status;
 	if (at24_init_status == 0U) {
@@ -112,6 +129,12 @@ int main(void)
 				 mpu_status == 0U ? "OK" : "FAIL", 16U);
 	lcd_show_string(20U, 220U, LCD_WIDTH - 40U, 24U, "MPU ID:", 16U);
 	lcd_show_num(100U, 220U, mpu_id, 3U, 16U);
+	lcd_show_string(20U, 500U, LCD_WIDTH - 40U, 24U, "NEC ADDR:", 16U);
+	lcd_show_hex8(108U, 500U, 0U);
+	lcd_show_string(20U, 532U, LCD_WIDTH - 40U, 24U, "NEC CMD:", 16U);
+	lcd_show_hex8(108U, 532U, 0U);
+	lcd_show_string(20U, 564U, LCD_WIDTH - 40U, 24U, "NEC KEY:", 16U);
+	lcd_show_string(108U, 564U, LCD_WIDTH - 108U, 24U, "UNKNOWN", 16U);
 	if (mpu_data_status == 0U)
 		lcd_show_mpu_data(&mpu_data);
 	printf("AT24 init=%u, check=%u, status=%u, MPU status=%u, ID=0x%02X, data=%u\r\n",
@@ -167,6 +190,17 @@ int main(void)
 			if(len>0){
 				printf("Received %d bytes:%.*s\r\n", len, len, buf);
 			}
+		}
+
+		nec_event = nec_read(&nec_address, &nec_command);
+		if (nec_event != NEC_EVENT_NONE) {
+			printf("NEC event=%u address=0x%02X command=0x%02X key=%s\r\n",
+			       (unsigned int)nec_event, nec_address, nec_command,
+			       nec_key_name(nec_command));
+			lcd_show_hex8(108U, 500U, nec_address);
+			lcd_show_hex8(108U, 532U, nec_command);
+			lcd_show_string(108U, 564U, LCD_WIDTH - 108U, 24U,
+						 nec_key_name(nec_command), 16U);
 		}
 
 		/* 单击 KEY0/KEY1 翻转对应 LED，验证按键、定时器和 LED 链路。 */

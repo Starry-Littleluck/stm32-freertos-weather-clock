@@ -426,6 +426,11 @@
               <FilePath>..\Driver\timer.c</FilePath>
             </File>
             <File>
+              <FileName>nec.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Driver\nec.c</FilePath>
+            </File>
+            <File>
               <FileName>pwm.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Driver\pwm.c</FilePath>

@@ -17,4 +17,5 @@ void board_lowlevel_init(void)
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_I2C1, ENABLE);
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_I2C2, ENABLE);
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM7, ENABLE);
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);
 }
