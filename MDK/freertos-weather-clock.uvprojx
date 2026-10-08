@@ -416,6 +416,11 @@
               <FilePath>..\Driver\usart1.c</FilePath>
             </File>
             <File>
+              <FileName>esp8266.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Driver\esp8266.c</FilePath>
+            </File>
+            <File>
               <FileName>key.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Driver\key.c</FilePath>

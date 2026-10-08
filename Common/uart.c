@@ -1,4 +1,6 @@
 #include "uart.h"
+#include "stm32f10x_dma.h"
+#include "stm32f10x_usart.h"
 #include <string.h>
 
 /* ============================================================
@@ -132,6 +134,17 @@ void uart_dma_push(uart_desc_t uart)
 
     uart->Rx_dma_pos = (position == size) ? 0 : position;
     __set_PRIMASK(primask);
+}
+
+/**
+ * @brief 把非 DMA 接收中断收到的一个字节写入软件 FIFO。
+ *
+ * DMA UART 继续使用 uart_dma_push()，轮询或 RXNE 中断 UART 可以调用
+ * 此入口，因此两种接收方式共享同一套 FIFO、读取和发送接口。
+ */
+void uart_receive_byte(uart_desc_t uart, uint8_t data)
+{
+    fifo_write(uart, &data, 1U);
 }
 
 /* ============================================================

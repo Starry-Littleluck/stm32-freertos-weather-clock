@@ -51,6 +51,8 @@ static uint16_t s_block_index;
 static uint8_t s_block[FONT_DOWNLOAD_BLOCK_SIZE];
 static uint8_t s_flash_ready;
 static uint8_t s_lcd_percent;
+static uint8_t s_magic_buffer[FONT_DOWNLOAD_MAGIC_SIZE];
+static font_download_idle_handler_t s_idle_handler;
 
 static const char *font_download_get_name(uint8_t file_id)
 {
@@ -151,6 +153,11 @@ static void font_download_reset(void)
     s_block_index = 0U;
     s_file_remaining = 0UL;
     s_lcd_percent = 0xFFU;
+}
+
+void font_download_demo_set_idle_handler(font_download_idle_handler_t handler)
+{
+    s_idle_handler = handler;
 }
 
 static uint32_t font_download_get_address(uint8_t file_id)
@@ -309,6 +316,7 @@ void font_download_demo_init(void)
                        "FONT FLASH ERROR");
     usart1_send_string("Font download ready\r\n");
     usart1_send_string("Send FONT header and file blocks\r\n");
+    usart1_send_string("USART1 is ESP8266 AT console\r\n");
     if (s_flash_ready == 0U)
     {
         usart1_send_string("W25Q128 not found\r\n");
@@ -319,11 +327,6 @@ void font_download_demo_run(void)
 {
     uint8_t data;
 
-    if (s_flash_ready == 0U)
-    {
-        return;
-    }
-
     /* 兜底同步 DMA，避免短包尚未触发 IDLE 时协议停在半包状态。 */
     usart1_poll();
     while (font_download_read_byte(&data) != 0U)
@@ -332,6 +335,7 @@ void font_download_demo_run(void)
         {
             if (data == (uint8_t)FONT_DOWNLOAD_MAGIC[s_magic_index])
             {
+                s_magic_buffer[s_magic_index] = data;
                 s_magic_index++;
                 if (s_magic_index == FONT_DOWNLOAD_MAGIC_SIZE)
                 {
@@ -342,7 +346,26 @@ void font_download_demo_run(void)
             }
             else
             {
-                s_magic_index = data == (uint8_t)'F' ? 1U : 0U;
+                uint8_t index;
+
+                /* 将未组成 FONT 头的字节交给上层串口命令处理。 */
+                if (s_idle_handler != 0)
+                {
+                    for (index = 0U; index < s_magic_index; index++)
+                    {
+                        s_idle_handler(s_magic_buffer[index]);
+                    }
+                }
+                s_magic_index = 0U;
+                if (data == (uint8_t)'F')
+                {
+                    s_magic_buffer[0] = data;
+                    s_magic_index = 1U;
+                }
+                else if (s_idle_handler != 0)
+                {
+                    s_idle_handler(data);
+                }
             }
         }
         else if (s_state == FONT_DOWNLOAD_HEADER)

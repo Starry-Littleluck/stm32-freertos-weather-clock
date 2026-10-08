@@ -42,6 +42,7 @@ void uart_send_string(uart_desc_t uart, const char *string);            /* 主�
 void uart_handle(uart_desc_t uart);                                     /* IDLE 中断里调用，搬运 DMA 数据到 FIFO */
 
 void uart_dma_push(uart_desc_t uart);                                   /* DMA/USART 中断里调用，同步 DMA 新数据 */
+void uart_receive_byte(uart_desc_t uart, uint8_t data);                 /* 非 DMA 接收中断写入一个字节 */
 uint16_t uart_available(const uart_desc_t uart);                        /* 主循环里调用，返回可读字节数 */
 uint16_t uart_read(uart_desc_t uart, uint8_t *buf, uint16_t len);       /* 主循环里调用，从 FIFO 里读数据 */
 uint16_t uart_readline(uart_desc_t uart, uint8_t *line, uint16_t size); /* 主循环里调用，从 FIFO 里读一行数据，返回字节数 */
