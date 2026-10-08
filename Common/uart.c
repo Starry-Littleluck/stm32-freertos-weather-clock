@@ -98,15 +98,15 @@ void uart_init(uart_desc_t uart)
  */
 void uart_dma_push(uart_desc_t uart)
 {
-    uint32_t primask = __get_PRIMASK();
-    uint16_t last;
-    uint16_t size;
-    uint16_t position;
+    uint32_t primask = __get_PRIMASK(); /* 保存中断状态，防止在搬运过程中被打断 */
+    uint16_t last;                      /* 上次搬运的 DMA 写指针位置 */
+    uint16_t size;                      /* DMA 缓冲区大小 */
+    uint16_t position;                  /* 当前 DMA 写指针位置 */
 
-    __disable_irq();
-    last = uart->Rx_dma_pos;  /* 上次搬运的 DMA 写指针位置 */
-    size = uart->Rx_dma_size; /* DMA 缓冲区大小 */
-    position = (uint16_t)(size - DMA_GetCurrDataCounter(uart->Dma_channel));
+    __disable_irq();                                                         /* 禁止中断，防止在搬运过程中被打断 */
+    last = uart->Rx_dma_pos;                                                 /* 上次搬运的 DMA 写指针位置 */
+    size = uart->Rx_dma_size;                                                /* DMA 缓冲区大小 */
+    position = (uint16_t)(size - DMA_GetCurrDataCounter(uart->Dma_channel)); /* 当前 DMA 写指针位置 = 总大小 - 剩余计数 */
 
     /* CNDTR 在传输完成后可能已经重装为 size，此时位置表现为 0。 */
     if (position == 0 && last != 0)

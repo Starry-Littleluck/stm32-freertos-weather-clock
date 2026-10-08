@@ -707,6 +707,39 @@ static void lcd_draw_glyph(uint16_t x, uint16_t y, uint8_t data, uint8_t size)
     }
 }
 
+static void lcd_draw_font_glyph(uint16_t x, uint16_t y, uint8_t size,
+                                const uint8_t *glyph)
+{
+    uint8_t bytes;
+    uint8_t row;
+    uint8_t column;
+
+    if (glyph == 0 || size == 0U || x >= s_lcd.width || y >= s_lcd.height ||
+        x > s_lcd.width - size || y > s_lcd.height - size)
+    {
+        return;
+    }
+
+    bytes = (uint8_t)((size + 7U) / 8U);
+    lcd_set_window(x, y, size, size);
+    lcd_start_write();
+    for (row = 0U; row < size; row++)
+    {
+        for (column = 0U; column < size; column++)
+        {
+            if ((glyph[column * bytes + row / 8U] &
+                 (uint8_t)(0x80U >> (row % 8U))) != 0U)
+            {
+                LCD_REG->ram = s_text_color;
+            }
+            else
+            {
+                LCD_REG->ram = s_window_clear ? s_back_color : s_text_color;
+            }
+        }
+    }
+}
+
 void lcd_show_char(uint16_t x, uint16_t y, uint8_t data, uint8_t size)
 {
     if (data < ' ' || data > '~')
@@ -776,6 +809,8 @@ void lcd_show_string(uint16_t x, uint16_t y, uint16_t width, uint16_t height,
     uint16_t right = (uint16_t)(x + width);
     uint16_t bottom = (uint16_t)(y + height);
     uint8_t count;
+    uint8_t char_width;
+    uint8_t glyph[72];
     uint32_t code;
 
     if (text == 0 || width == 0U || height == 0U)
@@ -806,11 +841,8 @@ void lcd_show_string(uint16_t x, uint16_t y, uint16_t width, uint16_t height,
             cursor_y = (uint16_t)(cursor_y + size);
             continue;
         }
-        if (code > 0x7FU)
-        {
-            code = '?';
-        }
-        if (cursor_x != x && cursor_x + size / 2U > right)
+        char_width = font_get_char_width(code, size);
+        if (cursor_x != x && cursor_x + char_width > right)
         {
             cursor_x = x;
             cursor_y = (uint16_t)(cursor_y + size);
@@ -820,8 +852,19 @@ void lcd_show_string(uint16_t x, uint16_t y, uint16_t width, uint16_t height,
             break;
         }
 
-        lcd_show_char(cursor_x, cursor_y, (uint8_t)code, size);
-        cursor_x = (uint16_t)(cursor_x + size / 2U);
+        if (code <= 0x7FU)
+        {
+            lcd_show_char(cursor_x, cursor_y, (uint8_t)code, size);
+        }
+        else if (font_read_glyph(code, size, glyph) == 0U)
+        {
+            lcd_draw_font_glyph(cursor_x, cursor_y, size, glyph);
+        }
+        else
+        {
+            lcd_show_char(cursor_x, cursor_y, '?', size);
+        }
+        cursor_x = (uint16_t)(cursor_x + char_width);
     }
 }
 
@@ -869,7 +912,7 @@ void lcd_init(void)
     lcd_set_back_color(LCD_WHITE);
     lcd_set_window_clear(1U);
     pwm_init();
+    font_flash_init();
     lcd_set_backlight(50U);
     lcd_clear(LCD_WHITE);
 }
-

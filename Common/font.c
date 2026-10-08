@@ -1,11 +1,14 @@
 /**
  * @file font.c
  * @brief 公共字库数据和字库 Flash 操作实现。
- * @details 保存 ASCII 字模和天气图标。中文外部字库接口暂未接入。
+ * @details 保存 ASCII 字模和天气图标，并提供 W25Q128 外部字库访问。
  * @author starry_littlelucky
  */
 
 #include "font.h"
+#include "w25q128.h"
+
+static uint8_t s_font_flash_ready;
 
 /* 晴、云、雨、雪、雷电、雾六种 16x16 单色图标。 */
 const uint16_t weather_icons[WEATHER_ICON_COUNT][WEATHER_ICON_HEIGHT] = {
@@ -98,6 +101,41 @@ static const uint8_t *font_get_ascii_glyph_impl(uint8_t data, uint8_t size,
 static uint8_t font_get_char_width_impl(uint32_t code, uint8_t size)
 {
   return (code <= 0x7F) ? (uint8_t)(size / 2) : size;
+}
+
+uint8_t font_flash_init(void)
+{
+    if (s_font_flash_ready == 0U)
+    {
+        s_font_flash_ready = (w25q128_init() == 0U) ? 1U : 0U;
+    }
+    return s_font_flash_ready == 0U ? 1U : 0U;
+}
+
+uint8_t font_flash_read(uint32_t address, uint8_t *data, uint32_t length)
+{
+    uint16_t count;/* 每次读取的最大长度为 65535 字节。 */
+
+    if (data == 0 && length != 0UL)
+    {
+        return 1U;
+    }
+    if (font_flash_init() != 0U)/* 确保字库 Flash 已初始化。 */
+    {
+        return 1U;
+    }
+    while (length != 0UL)
+    {
+        count = length > 65535UL ? 65535U : (uint16_t)length;/* 每次读取的最大长度为 65535 字节。 */
+        if (w25q128_read(address, data, count) != 0U)/* 读取失败。 */
+        {
+            return 1U;
+        }
+        address += count;
+        data += count;
+        length -= count;
+    }
+    return 0U;
 }
 
 /**
@@ -197,6 +235,68 @@ uint8_t Font_Flash_Read(uint32_t address, uint8_t *data, uint32_t length)
 }
 #endif
 
+static uint16_t font_unicode_to_gbk(uint32_t unicode)
+{
+    int32_t left = 0;
+    int32_t right = (int32_t)(FONT_UNIGBK_SIZE / 8UL) - 2;
+    int32_t middle;
+    uint16_t value;
+    uint8_t item[4];
+    uint32_t address;
+
+    if (unicode > 0xFFFFUL)
+    {
+        return 0U;
+    }
+
+    while (left <= right)
+    {
+        middle = left + (right - left) / 2;
+        address = FONT_FLASH_UNIGBK_ADDRESS + (uint32_t)middle * 4UL;
+        if (font_flash_read(address, item, sizeof(item)) != 0U)
+        {
+            return 0U;
+        }
+        value = (uint16_t)item[0] | ((uint16_t)item[1] << 8);
+        if (value == (uint16_t)unicode)
+        {
+            return (uint16_t)item[2] | ((uint16_t)item[3] << 8);
+        }
+        if (value < (uint16_t)unicode)
+        {
+            left = middle + 1;
+        }
+        else
+        {
+            right = middle - 1;
+        }
+    }
+    return 0U;
+}
+
+/**
+ * @brief 解析一个 UTF-8 或 GBK 编码字符。
+ * @param text 字符串当前位置。
+ * @param code 返回 Unicode 编码或带标记的 GBK 编码。
+ * @return 当前字符占用的字节数，字符串结束时返回 0。
+ */
+static uint16_t font_gbk_index(uint16_t gbk)
+{
+    uint8_t high = (uint8_t)(gbk >> 8);
+    uint8_t low = (uint8_t)gbk;
+
+    if (high < 0x81U || high > 0xFEU || low < 0x40U ||
+        low > 0xFEU || low == 0x7FU)
+    {
+        return 0xFFFFU;
+    }
+    if (low < 0x7FU)
+    {
+        return (uint16_t)(high - 0x81U) * 190U + low - 0x40U;
+    }
+    return (uint16_t)(high - 0x81U) * 190U + low - 0x41U;
+}
+
 /**
  * @brief 解析一个 UTF-8 或 GBK 编码字符。
  * @param text 字符串当前位置。
@@ -247,7 +347,7 @@ static uint8_t font_decode_text_impl(const uint8_t *text, uint32_t *code)
             ((uint32_t)(second & 0x3F) << 6) | (third & 0x3F);
     return 3;
   }
-  if (first >= 0xF0 && first <= 0xF4)
+  if (first >= 0xF0 && first <= 0xF4)/* UTF-8 最大支持到 U+10FFFF */
   {
     fourth = 0;
     if (second != 0 && third != 0)
@@ -270,11 +370,11 @@ static uint8_t font_decode_text_impl(const uint8_t *text, uint32_t *code)
       second != 0 &&
       second >= 0x40 && second <= 0xFE && second != 0x7F)
   {
-    *code = FONT_CODE_GBK_FLAG | ((uint32_t)first << 8) | second;
+    *code = FONT_CODE_GBK_FLAG | ((uint32_t)first << 8) | second;/* GBK 编码 */
     return 2;
   }
 
-  *code = first;
+  *code = first;/* 其他情况按单字节处理 */
   return 1;
 }
 
@@ -421,12 +521,56 @@ uint8_t font_decode_text(const uint8_t *text, uint32_t *code)
   return font_decode_text_impl(text, code);
 }
 
+/**
+ * @brief 获取字符在屏幕上的显示宽度。
+ * @param code Unicode、GBK 标记编码或 ASCII 编码。
+ * @param size 字体高度。
+ * @return ASCII 字符宽度为字号的一半，中文字符宽度等于字号。
+ */
 uint8_t font_read_glyph(uint32_t code, uint8_t size, uint8_t *glyph)
 {
-  (void)code;
-  (void)size;
-  (void)glyph;
-  return 1U;
+    uint16_t gbk;
+    uint16_t index;
+    uint16_t glyph_size;
+    uint32_t address;
+
+    if (glyph == 0 || (size != 12U && size != 16U && size != 24U))
+    {
+        return 1U;
+    }
+
+    if (FONT_CODE_IS_GBK(code))
+    {
+        gbk = FONT_CODE_GBK_VALUE(code);
+    }
+    else
+    {
+        gbk = font_unicode_to_gbk(code);
+    }
+    index = font_gbk_index(gbk);
+    if (index == 0xFFFFU)
+    {
+        return 1U;
+    }
+
+    if (size == 12U)
+    {
+        address = FONT_FLASH_GBK12_ADDRESS;
+        glyph_size = 24U;
+    }
+    else if (size == 16U)
+    {
+        address = FONT_FLASH_GBK16_ADDRESS;
+        glyph_size = 32U;
+    }
+    else
+    {
+        address = FONT_FLASH_GBK24_ADDRESS;
+        glyph_size = 72U;
+    }
+
+    return font_flash_read(address + (uint32_t)index * glyph_size,
+                           glyph, glyph_size);
 }
 
 /* 12 像素高、6 像素宽的 ASCII 字模。 */

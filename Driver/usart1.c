@@ -7,8 +7,12 @@
 #include "usart1.h"
 #include "uart.h"
 
-static uint8_t s_usart1_dma_buf[512];   /* DMA 循环缓冲区，建议 2 的幂 */
-static uint8_t s_usart1_fifo_buf[1024]; /* 软件 FIFO，容量必须 2 的幂  */
+/*
+ * 下载期间 Flash 擦除/写入会暂时阻塞主循环；使用更大的缓冲区，
+ * 避免 DMA 环形缓冲回绕或软件 FIFO 满导致数据块错位。
+ */
+static uint8_t s_usart1_dma_buf[1024];
+static uint8_t s_usart1_fifo_buf[4096];
 
 static struct uart_desc s_usart1_desc = {
     .Instance = USART1,
@@ -106,8 +110,15 @@ void usart1_send_string(const char *string)
     uart_send_string(s_usart1, string);
 }
 
+void usart1_poll(void)
+{
+    uart_dma_push(s_usart1);
+}
+
 uint16_t usart1_available(void)
 {
+    /* 查询前主动同步一次，覆盖短包未触发 IDLE/ DMA 中断的情况。 */
+    uart_dma_push(s_usart1);
     return uart_available(s_usart1);
 }
 

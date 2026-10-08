@@ -395,6 +395,11 @@
               <FileType>1</FileType>
               <FilePath>..\App\board.c</FilePath>
             </File>
+            <File>
+              <FileName>font_download_demo.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\font_download_demo.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -449,6 +454,11 @@
               <FileName>mpu6050.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Driver\mpu6050.c</FilePath>
+            </File>
+            <File>
+              <FileName>w25q128.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Driver\w25q128.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -594,6 +604,33 @@
         </Group>
         <Group>
           <GroupName>Third_Lib</GroupName>
+          <Files>
+            <File>
+              <FileName>GBK12.FON</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Third_lib\FONT\GBK12.FON</FilePath>
+            </File>
+            <File>
+              <FileName>GBK16.FON</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Third_lib\FONT\GBK16.FON</FilePath>
+            </File>
+            <File>
+              <FileName>GBK24.FON</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Third_lib\FONT\GBK24.FON</FilePath>
+            </File>
+            <File>
+              <FileName>UNIGBK.BIN</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Third_lib\FONT\UNIGBK.BIN</FilePath>
+            </File>
+            <File>
+              <FileName>upload_fonts.cmd</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Third_lib\FONT\upload_fonts.cmd</FilePath>
+            </File>
+          </Files>
         </Group>
         <Group>
           <GroupName>Common</GroupName>
@@ -622,6 +659,16 @@
               <FileName>iic_hard.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Common\iic_hard.c</FilePath>
+            </File>
+            <File>
+              <FileName>spi.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Common\spi.c</FilePath>
+            </File>
+            <File>
+              <FileName>spi_hard.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Common\spi_hard.c</FilePath>
             </File>
           </Files>
         </Group>
