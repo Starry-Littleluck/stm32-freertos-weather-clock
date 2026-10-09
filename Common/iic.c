@@ -196,3 +196,59 @@ uint8_t iic_read_reg(iic_desc_t iic, uint8_t address, uint8_t reg,
     iic_stop(iic);
     return status;
 }
+
+uint8_t iic_write_reg16(iic_desc_t iic, uint8_t address, uint16_t reg,
+                        const uint8_t *data, uint16_t length)
+{
+    uint8_t status;
+
+    if (iic == 0 || (data == 0 && length != 0U))
+        return 1U;
+
+    iic_start(iic);
+    status = iic_write_byte(iic, (uint8_t)(address << 1));
+    if (status == 0U)
+        status = iic_write_byte(iic, (uint8_t)(reg >> 8));
+    if (status == 0U)
+        status = iic_write_byte(iic, (uint8_t)reg);
+    if (status == 0U)
+        status = iic_write_data(iic, data, length);
+    iic_stop(iic);
+    return status;
+}
+
+uint8_t iic_read_reg16(iic_desc_t iic, uint8_t address, uint16_t reg,
+                       uint8_t *data, uint16_t length)
+{
+    uint16_t index;
+    uint8_t status;
+
+    if (iic == 0 || (data == 0 && length != 0U))
+        return 1U;
+    if (length == 0U)
+        return 0U;
+
+    iic_start(iic);
+    status = iic_write_byte(iic, (uint8_t)(address << 1));
+    if (status == 0U)
+        status = iic_write_byte(iic, (uint8_t)(reg >> 8));
+    if (status == 0U)
+        status = iic_write_byte(iic, (uint8_t)reg);
+    if (status == 0U)
+    {
+        iic_start(iic);
+        status = iic_write_byte(iic, (uint8_t)((address << 1) | 1U));
+    }
+    if (status == 0U)
+    {
+        for (index = 0U; index < length; index++)
+        {
+            status = iic_read_byte(iic, &data[index],
+                                   (index + 1U < length) ? 1U : 0U);
+            if (status != 0U)
+                break;
+        }
+    }
+    iic_stop(iic);
+    return status;
+}
