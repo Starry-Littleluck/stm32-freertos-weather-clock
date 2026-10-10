@@ -6,6 +6,7 @@
 
 #include "usart1.h"
 #include "uart.h"
+#include "irq_priority.h"
 
 /*
  * 下载期间 Flash 擦除/写入会暂时阻塞主循环；使用更大的缓冲区，
@@ -76,13 +77,13 @@ void usart1_init(uint32_t baudrate)
     /* ---------- 5. NVIC ---------- */
     /* DMA 中断优先级高于 USART 中断，保证数据搬运及时 */
     nvic.NVIC_IRQChannel = DMA1_Channel5_IRQn;
-    nvic.NVIC_IRQChannelPreemptionPriority = 1;
+    nvic.NVIC_IRQChannelPreemptionPriority = IRQ_PRIORITY_RTOS_SAFE;
     nvic.NVIC_IRQChannelSubPriority = 0;
     nvic.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&nvic);
 
     nvic.NVIC_IRQChannel = USART1_IRQn;
-    nvic.NVIC_IRQChannelPreemptionPriority = 2;
+    nvic.NVIC_IRQChannelPreemptionPriority = IRQ_PRIORITY_BACKGROUND;
     nvic.NVIC_IRQChannelSubPriority = 0;
     nvic.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&nvic);

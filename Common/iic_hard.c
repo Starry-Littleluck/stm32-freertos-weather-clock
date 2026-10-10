@@ -190,24 +190,32 @@ static uint8_t iic_hard_read_data(const iic_hard_desc_t iic, uint8_t *data,
     I2C_NACKPositionConfig(iic->Instance, I2C_NACKPosition_Current);
     iic_hard_clear_addr(iic);
 
-    /* 多字节接收：最后一个字节前关闭 ACK 并产生 STOP，逐字节等待 RXNE。
-       这样可以保证 MPU 的 14 字节读取结束后 SDA/SCL 都回到空闲状态。 */
-    for (index = 0U; index < length; index++)
+    /* STM32F1 requires a dedicated ending sequence for N >= 3 bytes.
+       ACK must be cleared while three bytes remain, otherwise the controller
+       acknowledges one byte too many and can leave BUSY set. */
+    for (index = 0U; index < (uint16_t)(length - 3U); index++)
     {
-        if (index + 1U == length)
-        {
-            I2C_AcknowledgeConfig(iic->Instance, DISABLE);
-            I2C_GenerateSTOP(iic->Instance, ENABLE);
-        }
-
         status = iic_hard_wait_flag(iic, I2C_FLAG_RXNE, 6U);
         if (status != 0U)
             return status;
         data[index] = I2C_ReceiveData(iic->Instance);
     }
 
+    status = iic_hard_wait_flag(iic, I2C_FLAG_BTF, 7U);
+    if (status != 0U)
+        return status;
+
+    I2C_AcknowledgeConfig(iic->Instance, DISABLE);
+    data[index++] = I2C_ReceiveData(iic->Instance);
+    I2C_GenerateSTOP(iic->Instance, ENABLE);
+    data[index++] = I2C_ReceiveData(iic->Instance);
+
+    status = iic_hard_wait_flag(iic, I2C_FLAG_RXNE, 8U);
+    if (status == 0U)
+        data[index] = I2C_ReceiveData(iic->Instance);
+
     I2C_AcknowledgeConfig(iic->Instance, ENABLE);
-    return 0U;
+    return status;
 }
 
 uint8_t iic_hard_init(iic_hard_desc_t iic)

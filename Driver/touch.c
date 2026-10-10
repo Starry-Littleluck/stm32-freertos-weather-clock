@@ -75,33 +75,37 @@ static uint8_t s_status;
 static uint16_t s_x[TOUCH_MAX_POINTS];
 static uint16_t s_y[TOUCH_MAX_POINTS];
 
-static void gt9147_read_reg(uint16_t reg, uint8_t *buffer, uint8_t length)
+static uint8_t gt9147_read_reg(uint16_t reg, uint8_t *buffer, uint8_t length)
 {
-    (void)iic_read_reg16(&s_touch_iic, GT9147_I2C_ADDRESS, reg, buffer, length);
+    return iic_read_reg16(&s_touch_iic, GT9147_I2C_ADDRESS, reg, buffer, length);
 }
 
-static void gt9147_write_reg(uint16_t reg, const uint8_t *buffer,
-                             uint8_t length)
+static uint8_t gt9147_write_reg(uint16_t reg, const uint8_t *buffer,
+                                uint8_t length)
 {
-    (void)iic_write_reg16(&s_touch_iic, GT9147_I2C_ADDRESS, reg, buffer, length);
+    return iic_write_reg16(&s_touch_iic, GT9147_I2C_ADDRESS, reg, buffer, length);
 }
 
-static void gt9147_send_config(void)
+static uint8_t gt9147_send_config(void)
 {
     uint8_t checksum[2];
     uint8_t sum = 0U;
     uint8_t index;
+    uint8_t status;
 
     for (index = 0U; index < sizeof(s_gt9147_config); index++)
         sum = (uint8_t)(sum + s_gt9147_config[index]);
     checksum[0] = (uint8_t)(~sum + 1U);
     checksum[1] = 0x01U;
-    gt9147_write_reg(GT9147_CONFIG_REG, s_gt9147_config,
-                     sizeof(s_gt9147_config));
-    gt9147_write_reg(GT9147_CHECK_REG, checksum, sizeof(checksum));
+    status = gt9147_write_reg(GT9147_CONFIG_REG, s_gt9147_config,
+                              sizeof(s_gt9147_config));
+    if (status != 0U)
+        return status;
+
+    return gt9147_write_reg(GT9147_CHECK_REG, checksum, sizeof(checksum));
 }
 
-static void touch_gpio_init(void)
+static uint8_t touch_gpio_init(void)
 {
     GPIO_InitTypeDef gpio;
 
@@ -118,16 +122,19 @@ static void touch_gpio_init(void)
     gpio.GPIO_Mode = GPIO_Mode_IPU;
     GPIO_Init(TOUCH_INT_PORT, &gpio);
 
-    (void)iic_init(&s_touch_iic);
+    return iic_init(&s_touch_iic);
 }
 
-static void gt9147_init(void)
+static uint8_t gt9147_init(void)
 {
     GPIO_InitTypeDef gpio;
     uint8_t id[5];
     uint8_t value;
+    uint8_t status;
 
-    touch_gpio_init();
+    status = touch_gpio_init();
+    if (status != 0U)
+        return status;
     GPIO_ResetBits(TOUCH_RST_PORT, TOUCH_RST_PIN);
     delay_ms(10U);
     GPIO_SetBits(TOUCH_RST_PORT, TOUCH_RST_PIN);
@@ -140,26 +147,47 @@ static void gt9147_init(void)
     GPIO_ResetBits(TOUCH_INT_PORT, TOUCH_INT_PIN);
     delay_ms(100U);
 
-    gt9147_read_reg(GT9147_PID_REG, id, 4U);
+    status = gt9147_read_reg(GT9147_PID_REG, id, 4U);
+    if (status != 0U)
+        return status;
+
     id[4] = 0U;
-    if (strcmp((const char *)id, "9147") == 0)
+    if (strcmp((const char *)id, "9147") != 0)
+        return 2U;
+
+    value = 0x02U;
+    status = gt9147_write_reg(GT9147_CTRL_REG, &value, 1U);
+    if (status != 0U)
+        return status;
+
+    status = gt9147_read_reg(GT9147_CONFIG_REG, &value, 1U);
+    if (status != 0U)
+        return status;
+
+    if (value < 0x60U)
     {
-        value = 0x02U;
-        gt9147_write_reg(GT9147_CTRL_REG, &value, 1U);
-        gt9147_read_reg(GT9147_CONFIG_REG, &value, 1U);
-        if (value < 0x60U)
-            gt9147_send_config();
-        delay_ms(10U);
-        value = 0x00U;
-        gt9147_write_reg(GT9147_CTRL_REG, &value, 1U);
+        status = gt9147_send_config();
+        if (status != 0U)
+            return status;
     }
+
+    delay_ms(10U);
+    value = 0x00U;
+    return gt9147_write_reg(GT9147_CTRL_REG, &value, 1U);
 }
 
 uint8_t touch_init(void)
 {
     uint8_t index;
+    uint8_t status;
 
-    gt9147_init();
+    status = gt9147_init();
+    if (status != 0U)
+    {
+        s_ready = 0U;
+        return status;
+    }
+
     s_ready = 1U;
     s_touch_type = 0x80U;
     s_status = 0U;
@@ -179,6 +207,7 @@ uint8_t touch_scan(touch_point_t *point)
     uint8_t index;
     uint8_t temp;
     uint8_t old_status;
+    uint8_t status;
     static uint8_t tick;
 
     if (point == 0 || s_ready == 0U)
@@ -190,11 +219,16 @@ uint8_t touch_scan(touch_point_t *point)
     tick++;
     if ((tick % 10U) == 0U || tick < 10U)
     {
-        gt9147_read_reg(GT9147_STATUS_REG, &mode, 1U);
+        status = gt9147_read_reg(GT9147_STATUS_REG, &mode, 1U);
+        if (status != 0U)
+            return status;
+
         if ((mode & 0x80U) != 0U && (mode & 0x0FU) < 6U)
         {
             temp = 0U;
-            gt9147_write_reg(GT9147_STATUS_REG, &temp, 1U);
+            status = gt9147_write_reg(GT9147_STATUS_REG, &temp, 1U);
+            if (status != 0U)
+                return status;
         }
         count = mode & 0x0FU;
         if (count != 0U && count < 6U)
@@ -209,7 +243,9 @@ uint8_t touch_scan(touch_point_t *point)
             {
                 if ((s_status & (1U << index)) != 0U)
                 {
-                    gt9147_read_reg(s_point_registers[index], buffer, 4U);
+                    status = gt9147_read_reg(s_point_registers[index], buffer, 4U);
+                    if (status != 0U)
+                        return status;
                     if ((s_touch_type & 0x01U) != 0U)
                     {
                         s_y[index] = (uint16_t)buffer[1] << 8 | buffer[0];

@@ -1,5 +1,6 @@
 #include "nec.h"
 
+#include "irq_priority.h"
 #include "misc.h"
 #include "stm32f10x_gpio.h"
 #include "stm32f10x_rcc.h"
@@ -74,8 +75,8 @@ void nec_init(void)
     TIM_ITConfig(NEC1->Timer, TIM_IT_CC4, ENABLE);
 
     nvic.NVIC_IRQChannel = TIM4_IRQn;
-    nvic.NVIC_IRQChannelPreemptionPriority = 2U;
-    nvic.NVIC_IRQChannelSubPriority = 2U;
+    nvic.NVIC_IRQChannelPreemptionPriority = IRQ_PRIORITY_LOW_LATENCY;
+    nvic.NVIC_IRQChannelSubPriority = 0U;
     nvic.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&nvic);
 

@@ -3,7 +3,8 @@
 
 void board_lowlevel_init(void)
 {
-    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2); /* 中断优先级分组：2位抢占优先级 + 2位响应优先级 */
+    /* FreeRTOS requires all implemented priority bits to be pre-emption bits. */
+    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);

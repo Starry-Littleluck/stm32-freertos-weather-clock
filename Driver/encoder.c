@@ -1,5 +1,6 @@
 #include "encoder.h"
 
+#include "irq_priority.h"
 #include "misc.h"
 #include "stm32f10x_exti.h"
 #include "stm32f10x_gpio.h"
@@ -83,13 +84,13 @@ void encoder_init(void)
     EXTI_Init(&exti);
 
     nvic.NVIC_IRQChannel = EXTI0_IRQn;
-    nvic.NVIC_IRQChannelPreemptionPriority = 1U;
+    nvic.NVIC_IRQChannelPreemptionPriority = IRQ_PRIORITY_LOW_LATENCY;
     nvic.NVIC_IRQChannelSubPriority = 0U;
     nvic.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&nvic);
 
     nvic.NVIC_IRQChannel = EXTI1_IRQn;
-    nvic.NVIC_IRQChannelSubPriority = 1U;
+    nvic.NVIC_IRQChannelSubPriority = 0U;
     NVIC_Init(&nvic);
 }
 

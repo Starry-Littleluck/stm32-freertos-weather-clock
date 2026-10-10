@@ -3,6 +3,7 @@
 #include "stm32f10x_tim.h"
 #include "misc.h"
 #include "key.h"
+#include "irq_priority.h"
 void timer_init(void)
 {
     TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
@@ -17,8 +18,8 @@ void timer_init(void)
 
     /* 2. 配置中断 */
     NVIC_InitStructure.NVIC_IRQChannel = TIM7_IRQn;           /* 定时器7中断 */
-    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0; /* 抢占优先级 */
-    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;        /* 子优先级 */
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = IRQ_PRIORITY_BACKGROUND; /* 可安全使用 FreeRTOS FromISR API */
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;        /* PriorityGroup_4 下不使用子优先级 */
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;           /* 使能中断 */
     NVIC_Init(&NVIC_InitStructure);
 

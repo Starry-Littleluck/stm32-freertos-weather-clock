@@ -3,6 +3,8 @@
 #include "lcd.h"
 #include "touch.h"
 #include "usart1.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
 #include <stdint.h>
 
@@ -156,6 +158,12 @@ static void touch_draw_test(void)
     }
 }
 
+static void touch_draw_task(void *parameter)
+{
+    (void)parameter;
+    touch_draw_test();
+}
+
 int main(void)
 {
     board_lowlevel_init();
@@ -167,6 +175,16 @@ int main(void)
     (void)touch_init();
     touch_draw_dialog();
     usart1_send_string("Experiment 27 touch draw ready\r\n");
-    touch_draw_test();
-    return 0;
+    if (xTaskCreate(touch_draw_task, "touch", 512U, NULL, 2U, NULL) != pdPASS)
+    {
+        for (;;)
+        {
+        }
+    }
+
+    vTaskStartScheduler();
+
+    for (;;)
+    {
+    }
 }

@@ -10,7 +10,7 @@ struct iic_hard_desc
     uint16_t Pin_scl;        /* SCL引脚 */
     uint16_t Pin_sda;        /* SDA引脚 */
     uint32_t Speed;          /* I2C时钟频率(Hz) */
-    uint32_t Timeout;        /* I2C操作超时时间(ms) */
+    uint32_t Timeout;        /* I2C 状态轮询上限（不是毫秒） */
 };
 
 typedef struct iic_hard_desc *iic_hard_desc_t;

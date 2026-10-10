@@ -1,5 +1,6 @@
 #include "esp8266.h"
 #include "delay.h"
+#include "irq_priority.h"
 #include "uart.h"
 #include <stddef.h>
 #include <stdio.h>
@@ -140,7 +141,7 @@ void esp8266_init(uint32_t baudrate)
     USART_Init(s_uart->Instance, &usart);
 
     nvic.NVIC_IRQChannel = USART2_IRQn;
-    nvic.NVIC_IRQChannelPreemptionPriority = 2U;
+    nvic.NVIC_IRQChannelPreemptionPriority = IRQ_PRIORITY_BACKGROUND;
     nvic.NVIC_IRQChannelSubPriority = 1U;
     nvic.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&nvic);
