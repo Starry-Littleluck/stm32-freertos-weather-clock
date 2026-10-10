@@ -4,5 +4,6 @@
             "path": "d:\\Users\\czq48\\Desktop\\learning\\stm32-freertos-weather-clock\\MDK\\freertos-weather-clock.uvprojx",
             "root": "d:\\Users\\czq48\\Desktop\\learning\\stm32-freertos-weather-clock\\MDK"
         }
-    ]
+    ],
+    "cmake.sourceDirectory": "D:/Users/czq48/Desktop/learning/stm32-freertos-weather-clock/Third_lib/lvgl"
 }

@@ -613,6 +613,22 @@ static void lcd_start_write(void)
     lcd_write_reg(s_lcd.write_ram_cmd);
 }
 
+void lcd_write_pixels(const uint16_t *pixels, uint32_t count)
+{
+    uint32_t index;
+
+    if (pixels == 0 || count == 0U)
+    {
+        return;
+    }
+
+    lcd_start_write();
+    for (index = 0U; index < count; index++)
+    {
+        LCD_REG->ram = pixels[index];
+    }
+}
+
 void lcd_clear(uint16_t color)
 {
     uint32_t total;

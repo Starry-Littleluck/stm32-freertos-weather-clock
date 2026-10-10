@@ -37,6 +37,7 @@ void lcd_fill(uint16_t x, uint16_t y, uint16_t width, uint16_t height,
 void lcd_draw_point(uint16_t x, uint16_t y);
 void lcd_set_cursor(uint16_t x, uint16_t y);
 void lcd_set_window(uint16_t x, uint16_t y, uint16_t width, uint16_t height);
+void lcd_write_pixels(const uint16_t *pixels, uint32_t count);
 void lcd_show_char(uint16_t x, uint16_t y, uint8_t data, uint8_t size);
 void lcd_show_num(uint16_t x, uint16_t y, uint32_t number, uint8_t length,
                   uint8_t size);
